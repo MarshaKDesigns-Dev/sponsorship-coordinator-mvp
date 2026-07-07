@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<a href="{{ url_for('home') }}">← Back to workspace</a>
+
+<div class="eyebrow mt-4">PROSPECT QUEUE</div>
+<h1>{{ category|title }}</h1>
+
+<div class="row g-3">
+  {% for p in prospects %}
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <div class="d-flex justify-content-between gap-3">
+        <h2>{{ p.name }}</h2>
+        <span class="score">{{ p.score }}</span>
+      </div>
+
+      <p><strong>Location:</strong> {{ p.location }}</p>
+      <p><strong>Category:</strong> {{ p.category }}</p>
+      <p><strong>Why it fits:</strong> {{ p.fit }}</p>
+      <p><strong>Recommended angle:</strong> {{ p.angle }}</p>
+
+      <a class="btn btn-dark" href="{{ url_for('prospect', category=category, index=loop.index0) }}">
+        Open Prospect
+      </a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
