@@ -4,6 +4,12 @@ An AI-powered workflow system that researches sponsorship prospects, identifies 
 
 This project demonstrates how AI can be integrated into a real business process without removing human judgment from consequential decisions.
 
+## Working Application
+
+The screenshot below shows a live opportunity record after the Message Quality Review Worker has reviewed and improved the sponsorship outreach. The Director can inspect the researched decision-maker, review AI quality-control notes and risk flags, edit the final message, and approve controlled test delivery.
+
+![Message Quality Review Worker](docs/screenshots/message-quality-review.png)
+
 ## The Business Problem
 
 Sponsorship development often requires a director or small team to manually:
