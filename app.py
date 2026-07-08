@@ -76,6 +76,36 @@ DIRECTOR_NAME = os.getenv("DIRECTOR_NAME", "Director Name")
 SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
 SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "")
 
+class ResearchRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    prospect_key = db.Column(db.String(250), unique=True, nullable=False)
+    parent_prospect = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(100))
+    score = db.Column(db.Integer)
+
+    recommended_target = db.Column(db.String(200))
+    contact_name = db.Column(db.String(200))
+    title = db.Column(db.String(200))
+    department = db.Column(db.String(250))
+    email = db.Column(db.String(250))
+    phone = db.Column(db.String(100))
+    contact_url = db.Column(db.Text)
+    linkedin_url = db.Column(db.Text)
+    why_this_contact = db.Column(db.Text)
+    confidence = db.Column(db.String(100))
+    verified_date = db.Column(db.String(50))
+    sources_json = db.Column(db.Text, default="[]")
+
+    outreach = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def sources(self):
+        try:
+            return json.loads(self.sources_json or "[]")
+        except Exception:
+            return []
 
 class Opportunity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -115,6 +145,8 @@ class Opportunity(db.Model):
         except Exception:
             return []
 
+def get_prospect_key(category, index):
+    return f"{category}:{index}"
 
 def client():
     key = os.getenv("OPENAI_API_KEY")
@@ -296,22 +328,88 @@ def prospects(category):
 def prospect(category, index):
     p = PROSPECTS[category][index]
 
-    existing = Opportunity.query.filter_by(parent_prospect=p["name"]).first()
+    existing_opportunity = Opportunity.query.filter_by(
+        parent_prospect=p["name"]
+    ).first()
 
-    if existing:
-        return redirect(url_for("opportunity_detail", opportunity_id=existing.id))
+    if existing_opportunity:
+        return redirect(
+            url_for(
+                "opportunity_detail",
+                opportunity_id=existing_opportunity.id
+            )
+        )
+
+    prospect_key = get_prospect_key(category, index)
+
+    research_record = ResearchRecord.query.filter_by(
+        prospect_key=prospect_key
+    ).first()
 
     contact = None
+    outreach = None
+
+    if research_record:
+        contact = {
+            "recommended_target": research_record.recommended_target,
+            "contact_name": research_record.contact_name,
+            "title": research_record.title,
+            "department": research_record.department,
+            "email": research_record.email,
+            "phone": research_record.phone,
+            "contact_url": research_record.contact_url,
+            "linkedin_url": research_record.linkedin_url,
+            "why_this_contact": research_record.why_this_contact,
+            "confidence": research_record.confidence,
+            "verified_date": research_record.verified_date,
+            "sources": research_record.sources
+        }
+
+        outreach = research_record.outreach
 
     if request.method == "POST":
         contact = research_contact(p)
+
         if contact.get("error"):
             flash(contact["error"], "warning")
             contact = None
         else:
-            flash("Contact research completed. Review the evidence before approving.", "success")
+            outreach = draft_outreach(p, contact)
 
-    outreach = draft_outreach(p, contact) if contact else None
+            if not research_record:
+                research_record = ResearchRecord(
+                    prospect_key=prospect_key,
+                    parent_prospect=p["name"],
+                    category=p["category"],
+                    score=p["score"]
+                )
+
+                db.session.add(research_record)
+
+            research_record.recommended_target = (
+                contact.get("recommended_target") or p["name"]
+            )
+            research_record.contact_name = contact.get("contact_name")
+            research_record.title = contact.get("title")
+            research_record.department = contact.get("department")
+            research_record.email = contact.get("email")
+            research_record.phone = contact.get("phone")
+            research_record.contact_url = contact.get("contact_url")
+            research_record.linkedin_url = contact.get("linkedin_url")
+            research_record.why_this_contact = contact.get("why_this_contact")
+            research_record.confidence = contact.get("confidence")
+            research_record.verified_date = contact.get("verified_date")
+            research_record.sources_json = json.dumps(
+                contact.get("sources") or []
+            )
+            research_record.outreach = outreach
+
+            db.session.commit()
+
+            flash(
+                "Contact research completed and saved. Review the evidence before approving.",
+                "success"
+            )
 
     return render_template(
         "prospect.html",
@@ -322,18 +420,42 @@ def prospect(category, index):
         outreach=outreach
     )
 
-
 @app.route("/approve/<category>/<int:index>", methods=["POST"])
 def approve(category, index):
     p = PROSPECTS[category][index]
+    prospect_key = get_prospect_key(category, index)
+
+    research_record = ResearchRecord.query.filter_by(
+        prospect_key=prospect_key
+    ).first()
+
     raw = request.form.get("contact_json")
     outreach = request.form.get("outreach")
 
-    if not raw:
+    if research_record:
+        contact = {
+            "recommended_target": research_record.recommended_target,
+            "contact_name": research_record.contact_name,
+            "title": research_record.title,
+            "department": research_record.department,
+            "email": research_record.email,
+            "phone": research_record.phone,
+            "contact_url": research_record.contact_url,
+            "linkedin_url": research_record.linkedin_url,
+            "why_this_contact": research_record.why_this_contact,
+            "confidence": research_record.confidence,
+            "verified_date": research_record.verified_date,
+            "sources": research_record.sources
+        }
+        outreach = research_record.outreach
+
+    elif raw:
+        contact = json.loads(raw)
+
+    else:
         flash("Contact research must be completed before approval.", "warning")
         return redirect(url_for("prospect", category=category, index=index))
 
-    contact = json.loads(raw)
     existing = Opportunity.query.filter_by(
         parent_prospect=p["name"],
         contact_name=contact.get("contact_name")
