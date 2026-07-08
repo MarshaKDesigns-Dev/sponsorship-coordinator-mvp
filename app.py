@@ -1,7 +1,7 @@
 import os, json, smtplib
 from email.message import EmailMessage
 from datetime import datetime, date, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from dotenv import load_dotenv
 from openai import OpenAI
 from flask_sqlalchemy import SQLAlchemy
@@ -20,22 +20,51 @@ ORG = {
     "mission": "Empower, Inspire, and Serve through confidence, leadership, community service, personal growth, and sisterhood."
 }
 
+CATEGORIES = [
+    {"slug": "healthcare", "category": "Healthcare & Wellness", "fit": "Women’s wellness, preventive care, mental wellness, confidence, and community impact.", "score": 90},
+    {"slug": "beauty", "category": "Beauty & Personal Care", "fit": "Confidence, preparation, self-expression, and delegate experience.", "score": 95},
+    {"slug": "fashion", "category": "Fashion & Size-Inclusive Retail", "fit": "Size-inclusive fashion, styling, wardrobe, and pageant preparation.", "score": 93},
+    {"slug": "financial", "category": "Financial Services", "fit": "Financial confidence, entrepreneurship, women’s economic influence, and community education.", "score": 86},
+    {"slug": "automotive", "category": "Automotive", "fit": "Local visibility, transportation, event activation, and community sponsorship.", "score": 80},
+]
+
+ASSETS = [
+    {"name": "Presenting Partnership", "value": "Top-level association with the initiative", "capacity": "1"},
+    {"name": "Category Exclusivity", "value": "Exclusive sponsor position within a business category", "capacity": "Limited"},
+    {"name": "Delegate Experience Partner", "value": "Workshops, products, services, or education for delegates", "capacity": "Limited"},
+    {"name": "Community Impact Partner", "value": "Visible alignment with service and community initiatives", "capacity": "Limited"},
+    {"name": "Program Book Presence", "value": "Print visibility and sponsor storytelling", "capacity": "Multiple"},
+    {"name": "Digital Visibility", "value": "Website, social, email, and campaign acknowledgment", "capacity": "Multiple"},
+    {"name": "Event Activation", "value": "On-site display, sampling, or engagement", "capacity": "Limited"},
+]
+
 PROSPECTS = {
-    "automotive": [
-        {"name":"Hendrick Automotive Group","location":"Triangle / NC","category":"Automotive","score":81,
-         "fit":"Regional automotive presence with potential community sponsorship interest.",
-         "angle":"Mobility, community, or event visibility partner."},
-        {"name":"Mark Jacobson Toyota","location":"Durham, NC","category":"Automotive","score":84,
-         "fit":"Local visibility and event/community sponsorship potential.",
-         "angle":"Local presenting support, transportation visibility, or event activation."}
-    ],
     "healthcare": [
-        {"name":"Duke Health","location":"Durham, NC","category":"Healthcare & Wellness","score":94,
-         "fit":"Strong local relevance and alignment with women’s health, wellness education, confidence, and community impact.",
-         "angle":"Women’s Wellness and Community Impact Partner."},
-        {"name":"Lincoln Community Health Center","location":"Durham, NC","category":"Healthcare & Wellness","score":91,
-         "fit":"Community-centered health mission and strong local relevance.",
-         "angle":"Community wellness and education partnership."}
+        {"name": "Duke Health", "location": "Durham, NC", "category": "Healthcare & Wellness", "score": 94, "fit": "Strong local relevance and natural alignment with women’s health, wellness education, confidence, and community impact.", "angle": "Women’s Wellness and Community Impact Partner focused on preventive care, confidence, and health education."},
+        {"name": "Lincoln Community Health Center", "location": "Durham, NC", "category": "Healthcare & Wellness", "score": 91, "fit": "Community-centered health mission and local relevance; strong fit for service, education, and public wellness themes.", "angle": "Community wellness partnership connected to education, screenings, or service-centered programming."},
+        {"name": "UNC Health", "location": "Chapel Hill / Triangle, NC", "category": "Healthcare & Wellness", "score": 87, "fit": "Regional healthcare presence with potential alignment around women’s wellness, community service, and public education.", "angle": "Community platform for women’s wellness visibility and education."},
+        {"name": "Blue Cross and Blue Shield of North Carolina", "location": "Durham, NC", "category": "Healthcare & Wellness", "score": 86, "fit": "North Carolina-based health insurer with potential community wellness, health equity, and local engagement alignment.", "angle": "Confidence, wellness, and community impact partnership with statewide relevance."},
+        {"name": "YMCA of the Triangle", "location": "Triangle, NC", "category": "Healthcare & Wellness", "score": 82, "fit": "Wellness, confidence, community, and family engagement fit; potential in-kind or program partnership.", "angle": "Wellness programming, delegate fitness and wellness experiences, or community activation."}
+    ],
+    "beauty": [
+        {"name": "Sally Beauty", "location": "Triangle / National", "category": "Beauty & Personal Care", "score": 90, "fit": "Direct alignment with pageant preparation, confidence, and beauty education.", "angle": "Product support, beauty kits, delegate experience support, or program book visibility."},
+        {"name": "Ulta Beauty", "location": "Triangle / National", "category": "Beauty & Personal Care", "score": 88, "fit": "Strong alignment with beauty, confidence, self-expression, and consumer engagement.", "angle": "In-kind beauty support, gift cards, styling experience, or confidence-focused activation."},
+        {"name": "Sephora", "location": "Triangle / National", "category": "Beauty & Personal Care", "score": 84, "fit": "Beauty and confidence alignment; potential for education, product support, or experience-based partnership.", "angle": "Beauty education or confidence experience for delegates."}
+    ],
+    "fashion": [
+        {"name": "Torrid", "location": "Triangle / National", "category": "Fashion & Size-Inclusive Retail", "score": 93, "fit": "Direct size-inclusive fashion alignment with full-figured women and pageant preparation.", "angle": "Wardrobe, styling, gift cards, fashion experience, or category visibility."},
+        {"name": "Lane Bryant", "location": "Triangle / National", "category": "Fashion & Size-Inclusive Retail", "score": 91, "fit": "Strong full-figured fashion and confidence alignment.", "angle": "Size-inclusive confidence and fashion partner."},
+        {"name": "Ashley Stewart", "location": "Regional / National", "category": "Fashion & Size-Inclusive Retail", "score": 88, "fit": "Brand alignment with style, confidence, and full-figured women.", "angle": "Fashion sponsorship, delegate styling, or program visibility."}
+    ],
+    "financial": [
+        {"name": "Self-Help Credit Union", "location": "Durham, NC", "category": "Financial Services", "score": 89, "fit": "Durham-based community finance alignment with empowerment, education, and local impact.", "angle": "Financial confidence or community empowerment partner."},
+        {"name": "Coastal Credit Union", "location": "Triangle, NC", "category": "Financial Services", "score": 84, "fit": "Regional relevance and potential alignment with financial education and community engagement.", "angle": "Financial wellness education and visibility through the Pageant community."},
+        {"name": "Truist", "location": "North Carolina / Regional", "category": "Financial Services", "score": 82, "fit": "Large regional financial institution with possible community and empowerment alignment.", "angle": "Women’s leadership, community service, and financial confidence."}
+    ],
+    "automotive": [
+        {"name": "Mark Jacobson Toyota", "location": "Durham, NC", "category": "Automotive", "score": 84, "fit": "Local visibility and event/community sponsorship potential.", "angle": "Local presenting support, transportation visibility, or event activation."},
+        {"name": "Hendrick Automotive Group", "location": "Triangle / NC", "category": "Automotive", "score": 81, "fit": "Regional automotive presence with potential community sponsorship interest.", "angle": "Mobility, community, or event visibility partner."},
+        {"name": "Leith Automotive Group", "location": "Triangle, NC", "category": "Automotive", "score": 80, "fit": "Regional dealer group with event and community engagement relevance.", "angle": "Event activation and community visibility support."}
     ]
 }
 
@@ -46,6 +75,7 @@ TEST_EMAIL = os.getenv("TEST_EMAIL", "")
 DIRECTOR_NAME = os.getenv("DIRECTOR_NAME", "Director Name")
 SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
 SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "")
+
 
 class Opportunity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -85,14 +115,16 @@ class Opportunity(db.Model):
         except Exception:
             return []
 
+
 def client():
     key = os.getenv("OPENAI_API_KEY")
     return OpenAI(api_key=key) if key else None
 
+
 def research_contact(prospect):
     c = client()
     if not c:
-        return {"error":"OPENAI_API_KEY is not configured."}
+        return {"error": "OPENAI_API_KEY is not configured."}
 
     prompt = f"""
 You are the Contact Research Worker for a sponsorship coordinator.
@@ -122,22 +154,25 @@ why_this_contact, confidence, verified_date, sources, recommended_next_action.
 - Use null for unavailable values.
 - sources must be a list of objects with label and url.
 """
+
     try:
         response = c.responses.create(
             model="gpt-5-mini",
-            tools=[{"type":"web_search"}],
+            tools=[{"type": "web_search"}],
             input=prompt
         )
         text = response.output_text.strip()
         if text.startswith("```"):
-            text = text.replace("```json","").replace("```","").strip()
+            text = text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
         return {"error": f"Contact research failed: {str(e)}"}
 
+
 def draft_outreach(prospect, contact):
     greeting = contact.get("contact_name") or contact.get("department") or "Community Partnerships Team"
     target = contact.get("recommended_target") or prospect["name"]
+
     return f"""Hello {greeting},
 
 I’m reaching out on behalf of {ORG['name']} in Durham. We are currently seeking partners for the 2026 Ms. Full-Figured North Carolina Pageant and identified {target} because {prospect['fit'].lower()}
@@ -190,7 +225,6 @@ Rules:
 - Fix awkward phrasing.
 - Make parent company vs local target clear.
 - Keep the tone professional and human.
-- Preserve the TEST MODE context; do not remove the fact that this will be reviewed by the Director before live sending.
 - Return only JSON with keys:
 improved_subject, improved_message, review_notes, risk_flags.
 risk_flags must be a list.
@@ -208,48 +242,65 @@ risk_flags must be a list.
     except Exception as e:
         return {"error": f"Message quality review failed: {str(e)}"}
 
-@app.route("/opportunity/<int:opportunity_id>/review-message", methods=["POST"])
-def review_message(opportunity_id):
-    opp = Opportunity.query.get_or_404(opportunity_id)
-
-    subject = request.form.get("subject", "").strip()
-    message = request.form.get("message", "").strip()
-
-    if not subject or not message:
-        flash("Subject and message are required before review.", "warning")
-        return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
-
-    result = review_message_quality(opp, subject, message)
-    if result.get("error"):
-        flash(result["error"], "warning")
-        return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
-
-    opp.subject = result.get("improved_subject") or subject
-    opp.reviewed_message = result.get("improved_message") or message
-    opp.outreach = opp.reviewed_message
-    notes = {
-        "review_notes": result.get("review_notes"),
-        "risk_flags": result.get("risk_flags") or []
-    }
-    opp.message_review_notes = json.dumps(notes)
-    opp.message_reviewed_at = datetime.utcnow()
-    db.session.commit()
-
-    flash("Message quality review completed. Review the improved version before sending.", "success")
-    return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
-
 
 @app.route("/")
 def home():
     return render_template("home.html", org=ORG, count=Opportunity.query.count())
 
+
+@app.route("/start", methods=["GET", "POST"])
+def start():
+    if request.method == "POST":
+        session["initiative"] = {
+            "initiative": request.form["initiative"],
+            "target": request.form["target"],
+            "deadline": request.form["deadline"],
+            "audience": request.form["audience"],
+            "needs": request.form["needs"]
+        }
+        return redirect(url_for("workspace"))
+
+    return render_template("start.html", org=ORG)
+
+
+@app.route("/workspace")
+def workspace():
+    data = session.get("initiative")
+
+    if not data:
+        data = {
+            "initiative": "2026 Ms. Full-Figured North Carolina Pageant",
+            "target": "$25,000 cash + $10,000 in-kind",
+            "deadline": "October 1, 2026",
+            "audience": "Delegates, pageant attendees, families, supporters, local community members, social media followers, and women connected to confidence, service, and empowerment.",
+            "needs": "Venue costs, printing, program book, delegate experiences, awards, photography, beauty services, fashion support, hospitality, community service support, and event production."
+        }
+        session["initiative"] = data
+
+    return render_template(
+        "workspace.html",
+        org=ORG,
+        data=data,
+        categories=CATEGORIES,
+        assets=ASSETS,
+        pipeline=Opportunity.query.all()
+    )
+
+
 @app.route("/prospects/<category>")
 def prospects(category):
     return render_template("prospects.html", category=category, prospects=PROSPECTS.get(category, []))
 
-@app.route("/prospect/<category>/<int:index>", methods=["GET","POST"])
+
+@app.route("/prospect/<category>/<int:index>", methods=["GET", "POST"])
 def prospect(category, index):
     p = PROSPECTS[category][index]
+
+    existing = Opportunity.query.filter_by(parent_prospect=p["name"]).first()
+
+    if existing:
+        return redirect(url_for("opportunity_detail", opportunity_id=existing.id))
+
     contact = None
 
     if request.method == "POST":
@@ -261,7 +312,16 @@ def prospect(category, index):
             flash("Contact research completed. Review the evidence before approving.", "success")
 
     outreach = draft_outreach(p, contact) if contact else None
-    return render_template("prospect.html", p=p, category=category, index=index, contact=contact, outreach=outreach)
+
+    return render_template(
+        "prospect.html",
+        p=p,
+        category=category,
+        index=index,
+        contact=contact,
+        outreach=outreach
+    )
+
 
 @app.route("/approve/<category>/<int:index>", methods=["POST"])
 def approve(category, index):
@@ -302,27 +362,34 @@ def approve(category, index):
         outreach=outreach,
         stage="Ready to Send"
     )
+
     db.session.add(opp)
     db.session.commit()
+
     flash(f"{opp.recommended_target} saved as a permanent opportunity.", "success")
     return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
+
 
 @app.route("/pipeline")
 def show_pipeline():
     opportunities = Opportunity.query.order_by(Opportunity.updated_at.desc()).all()
     return render_template("pipeline.html", opportunities=opportunities)
 
+
 @app.route("/opportunity/<int:opportunity_id>")
 def opportunity_detail(opportunity_id):
     opp = Opportunity.query.get_or_404(opportunity_id)
+
     default_subject = opp.subject or f"Potential partnership with {ORG['name']}"
     display_message = (opp.reviewed_message or opp.outreach or "").replace("[Director Name]", DIRECTOR_NAME)
+
     review_notes = None
     if opp.message_review_notes:
         try:
             review_notes = json.loads(opp.message_review_notes)
         except Exception:
             review_notes = None
+
     return render_template(
         "opportunity.html",
         opp=opp,
@@ -333,6 +400,37 @@ def opportunity_detail(opportunity_id):
         display_message=display_message,
         review_notes=review_notes
     )
+
+
+@app.route("/opportunity/<int:opportunity_id>/review-message", methods=["POST"])
+def review_message(opportunity_id):
+    opp = Opportunity.query.get_or_404(opportunity_id)
+
+    subject = request.form.get("subject", "").strip()
+    message = request.form.get("message", "").strip()
+
+    if not subject or not message:
+        flash("Subject and message are required before review.", "warning")
+        return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
+
+    result = review_message_quality(opp, subject, message)
+    if result.get("error"):
+        flash(result["error"], "warning")
+        return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
+
+    opp.subject = result.get("improved_subject") or subject
+    opp.reviewed_message = result.get("improved_message") or message
+    opp.outreach = opp.reviewed_message
+    opp.message_review_notes = json.dumps({
+        "review_notes": result.get("review_notes"),
+        "risk_flags": result.get("risk_flags") or []
+    })
+    opp.message_reviewed_at = datetime.utcnow()
+
+    db.session.commit()
+
+    flash("Message quality review completed. Review the improved version before sending.", "success")
+    return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
 
 
 @app.route("/opportunity/<int:opportunity_id>/send-email", methods=["POST"])
@@ -384,6 +482,7 @@ def send_email(opportunity_id):
     opp.stage = "Sent"
     opp.sent_date = date.today()
     opp.follow_up_date = date.today() + timedelta(days=7)
+
     db.session.commit()
 
     flash(f"{delivery_mode} email sent to {recipient}. Follow-up scheduled for 7 days from today.", "success")
@@ -393,26 +492,36 @@ def send_email(opportunity_id):
 @app.route("/opportunity/<int:opportunity_id>/mark-sent", methods=["POST"])
 def mark_sent(opportunity_id):
     opp = Opportunity.query.get_or_404(opportunity_id)
+
     opp.stage = "Sent"
     opp.sent_date = date.today()
     opp.follow_up_date = date.today() + timedelta(days=7)
+
     db.session.commit()
+
     flash("Outreach marked as sent. Follow-up scheduled for 7 days from today.", "success")
     return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
+
 
 @app.route("/opportunity/<int:opportunity_id>/update", methods=["POST"])
 def update_opportunity(opportunity_id):
     opp = Opportunity.query.get_or_404(opportunity_id)
+
     opp.stage = request.form.get("stage", opp.stage)
     opp.notes = request.form.get("notes")
+
     follow = request.form.get("follow_up_date")
     opp.follow_up_date = datetime.strptime(follow, "%Y-%m-%d").date() if follow else None
+
     db.session.commit()
+
     flash("Opportunity updated.", "success")
     return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
 
+
 with app.app_context():
     db.create_all()
+
 
 if __name__ == "__main__":
     app.run(debug=True)
