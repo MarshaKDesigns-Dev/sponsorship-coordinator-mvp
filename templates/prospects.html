@@ -1,6 +1,4 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <a href="{{ url_for('home') }}">← Back to workspace</a>
 
 <div class="eyebrow mt-4">PROSPECT QUEUE</div>
@@ -20,7 +18,10 @@
       <p><strong>Why it fits:</strong> {{ p.fit }}</p>
       <p><strong>Recommended angle:</strong> {{ p.angle }}</p>
 
-      <a class="btn btn-dark" href="{{ url_for('prospect', category=category, index=loop.index0) }}">
+      <a
+        class="btn btn-dark"
+        href="{{ url_for('prospect', category=category, index=loop.index0) }}"
+      >
         Open Prospect
       </a>
     </div>
