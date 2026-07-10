@@ -459,16 +459,40 @@
       </a>
       {% endif %}
 
+      {% if (opp.outreach_channel or "email") == "email" %}
+      <form
+        method="post"
+        action="{{ url_for('send_follow_up_email', opportunity_id=opp.id) }}"
+        class="mb-3"
+      >
+        <button class="btn btn-gold w-100">
+          {% if test_mode %} Send Test Follow-Up Email
+          {% else %} Send Live Follow-Up Email {% endif %}
+        </button>
+      </form>
+
+      <form
+        method="post"
+        action="{{ url_for('complete_follow_up', opportunity_id=opp.id) }}"
+      >
+        <button class="btn btn-outline-dark w-100">
+          I Sent It Another Way
+        </button>
+      </form>
+      {% else %}
       <form
         method="post"
         action="{{ url_for('complete_follow_up', opportunity_id=opp.id) }}"
       >
         <button class="btn btn-gold w-100">
-          {% if opp.outreach_channel == "phone" %} I Completed the Follow-Up
-          Call {% elif opp.outreach_channel == "contact_form" %} I Submitted the
-          Follow-Up Form {% else %} I Sent the Follow-Up {% endif %}
+          {% if opp.outreach_channel == "phone" %}
+          I Completed the Follow-Up Call
+          {% else %}
+          I Submitted the Follow-Up Form
+          {% endif %}
         </button>
       </form>
+      {% endif %}
       {% endif %} {% endif %}
     </div>
     {% endif %}

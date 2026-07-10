@@ -1,6 +1,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 import app as app_module
 
 
@@ -176,4 +178,123 @@ def test_follow_up_template_defaults_missing_channel_to_email():
     )
     assert 'name="subject"' in follow_up_form
     assert 'value="{{ opp.follow_up_subject or \'\' }}"' in follow_up_form
+
+def test_follow_up_test_delivery_redirects_to_configured_test_email(
+    monkeypatch,
+):
+    monkeypatch.setattr(app_module, "TEST_MODE", True)
+    monkeypatch.setattr(
+        app_module,
+        "TEST_EMAIL",
+        "pilot-test@example.com",
+    )
+
+    opportunity = SimpleNamespace(
+        outreach_channel=None,
+        email="prospect@example.com",
+        follow_up_subject="Sponsorship follow-up",
+        follow_up_message="Could we schedule a short conversation?",
+    )
+
+    delivery = app_module.build_follow_up_email_delivery(opportunity)
+
+    assert delivery == {
+        "recipient": "pilot-test@example.com",
+        "subject": (
+            "[TEST — NOT SENT TO PROSPECT] Sponsorship follow-up"
+        ),
+        "message": "Could we schedule a short conversation?",
+        "delivery_mode": "TEST",
+    }
+
+
+def test_follow_up_live_delivery_uses_prospect_email(monkeypatch):
+    monkeypatch.setattr(app_module, "TEST_MODE", False)
+
+    opportunity = SimpleNamespace(
+        outreach_channel="email",
+        email="prospect@example.com",
+        follow_up_subject="Sponsorship follow-up",
+        follow_up_message="Could we schedule a short conversation?",
+    )
+
+    delivery = app_module.build_follow_up_email_delivery(opportunity)
+
+    assert delivery["recipient"] == "prospect@example.com"
+    assert delivery["subject"] == "Sponsorship follow-up"
+    assert delivery["delivery_mode"] == "LIVE"
+
+
+def test_record_follow_up_completion_schedules_next_follow_up(
+    monkeypatch,
+):
+    fixed_today = app_module.date(2026, 7, 10)
+
+    class FixedDate(app_module.date):
+        @classmethod
+        def today(cls):
+            return fixed_today
+
+    monkeypatch.setattr(app_module, "date", FixedDate)
+
+    opportunity = SimpleNamespace(
+        follow_up_completed_at=None,
+        follow_up_date=fixed_today,
+    )
+
+    app_module.record_follow_up_completion(opportunity)
+
+    assert opportunity.follow_up_completed_at is not None
+    assert opportunity.follow_up_date == app_module.date(2026, 7, 17)
+
+
+def test_smtp_failure_does_not_record_follow_up_completion(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        app_module,
+        "SMTP_EMAIL",
+        "sender@example.com",
+    )
+    monkeypatch.setattr(
+        app_module,
+        "SMTP_APP_PASSWORD",
+        "test-password",
+    )
+
+    class BrokenSMTP:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("SMTP unavailable")
+
+    monkeypatch.setattr(
+        app_module.smtplib,
+        "SMTP_SSL",
+        BrokenSMTP,
+    )
+
+    opportunity = SimpleNamespace(
+        follow_up_completed_at=None,
+        follow_up_date=app_module.date(2026, 7, 10),
+    )
+
+    with pytest.raises(RuntimeError, match="SMTP unavailable"):
+        app_module.deliver_smtp_email(
+            "recipient@example.com",
+            "Test follow-up",
+            "Test message",
+        )
+
+    assert opportunity.follow_up_completed_at is None
+    assert opportunity.follow_up_date == app_module.date(2026, 7, 10)
+
+
+def test_follow_up_template_includes_email_delivery_and_manual_options():
+    template_text = Path("templates/opportunity.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert "send_follow_up_email" in template_text
+    assert "Send Test Follow-Up Email" in template_text
+    assert "Send Live Follow-Up Email" in template_text
+    assert "I Sent It Another Way" in template_text
 
