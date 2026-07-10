@@ -1350,6 +1350,33 @@ def mark_sent(opportunity_id):
     return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
 
 
+def normalize_follow_up_draft(opp, result):
+    """Normalize AI follow-up output and guarantee email subject readiness."""
+    generated_subject = (result.get("subject") or "").strip()
+    generated_message = (result.get("message") or "").strip()
+    channel = opp.outreach_channel or "email"
+
+    if channel == "email" and not generated_subject:
+        organization_name = (
+            get_org_profile().get("name")
+            or "our organization"
+        )
+        target_name = (
+            opp.recommended_target
+            or opp.parent_prospect
+            or "the prospective sponsor"
+        )
+
+        generated_subject = (
+            f"Following up: {organization_name} and {target_name}"
+        )
+
+    return {
+        "subject": generated_subject,
+        "message": generated_message,
+    }
+
+
 @app.route("/opportunity/<int:opportunity_id>/generate-follow-up", methods=["POST"])
 def generate_follow_up(opportunity_id):
     opp = Opportunity.query.get_or_404(opportunity_id)
@@ -1364,8 +1391,10 @@ def generate_follow_up(opportunity_id):
         flash(result["error"], "warning")
         return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
 
-    opp.follow_up_subject = result.get("subject") or ""
-    opp.follow_up_message = result.get("message") or ""
+    follow_up_draft = normalize_follow_up_draft(opp, result)
+
+    opp.follow_up_subject = follow_up_draft["subject"]
+    opp.follow_up_message = follow_up_draft["message"]
     opp.follow_up_review_notes = None
     opp.follow_up_reviewed_at = None
     opp.follow_up_completed_at = None
