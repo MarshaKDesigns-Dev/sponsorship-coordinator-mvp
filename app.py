@@ -1465,6 +1465,113 @@ def review_follow_up(opportunity_id):
     return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
 
 
+def build_follow_up_email_delivery(opp):
+    """Prepare reviewed follow-up email delivery details."""
+    channel = (opp.outreach_channel or "email").strip().lower()
+
+    if channel != "email":
+        raise ValueError(
+            "Automated follow-up email delivery is only available for email opportunities."
+        )
+
+    subject = (opp.follow_up_subject or "").strip()
+    message = (opp.follow_up_message or "").strip()
+
+    if not subject or not message:
+        raise ValueError(
+            "Follow-up subject and message are required before sending."
+        )
+
+    if TEST_MODE:
+        recipient = (TEST_EMAIL or "").strip()
+        subject_to_send = f"[TEST — NOT SENT TO PROSPECT] {subject}"
+        delivery_mode = "TEST"
+    else:
+        recipient = (opp.email or "").strip()
+        subject_to_send = subject
+        delivery_mode = "LIVE"
+
+    if not recipient:
+        raise ValueError("No follow-up delivery recipient is configured.")
+
+    return {
+        "recipient": recipient,
+        "subject": subject_to_send,
+        "message": message,
+        "delivery_mode": delivery_mode,
+    }
+
+
+def deliver_smtp_email(recipient, subject, message):
+    """Deliver one plain-text email through the configured Gmail SMTP account."""
+    if not SMTP_EMAIL or not SMTP_APP_PASSWORD:
+        raise ValueError(
+            "Email sending is not configured yet. "
+            "Add SMTP_EMAIL and SMTP_APP_PASSWORD to .env."
+        )
+
+    email = EmailMessage()
+    email["From"] = SMTP_EMAIL
+    email["To"] = recipient
+    email["Subject"] = subject
+    email.set_content(message)
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(SMTP_EMAIL, SMTP_APP_PASSWORD)
+        smtp.send_message(email)
+
+
+def record_follow_up_completion(opp):
+    """Record a completed follow-up and schedule the next one."""
+    opp.follow_up_completed_at = datetime.utcnow()
+    opp.follow_up_date = date.today() + timedelta(days=7)
+
+
+@app.route(
+    "/opportunity/<int:opportunity_id>/send-follow-up-email",
+    methods=["POST"]
+)
+def send_follow_up_email(opportunity_id):
+    opp = Opportunity.query.get_or_404(opportunity_id)
+
+    if not opp.follow_up_reviewed_at:
+        flash("Review the follow-up before sending it.", "warning")
+        return redirect(
+            url_for("opportunity_detail", opportunity_id=opp.id)
+        )
+
+    try:
+        delivery = build_follow_up_email_delivery(opp)
+        deliver_smtp_email(
+            delivery["recipient"],
+            delivery["subject"],
+            delivery["message"],
+        )
+    except ValueError as error:
+        flash(str(error), "warning")
+        return redirect(
+            url_for("opportunity_detail", opportunity_id=opp.id)
+        )
+    except Exception as error:
+        flash(f"Follow-up email was not sent: {str(error)}", "warning")
+        return redirect(
+            url_for("opportunity_detail", opportunity_id=opp.id)
+        )
+
+    record_follow_up_completion(opp)
+    db.session.commit()
+
+    flash(
+        f'{delivery["delivery_mode"]} follow-up email sent to '
+        f'{delivery["recipient"]}. The next follow-up is scheduled '
+        "for 7 days from today.",
+        "success",
+    )
+    return redirect(
+        url_for("opportunity_detail", opportunity_id=opp.id)
+    )
+
+
 @app.route("/opportunity/<int:opportunity_id>/complete-follow-up", methods=["POST"])
 def complete_follow_up(opportunity_id):
     opp = Opportunity.query.get_or_404(opportunity_id)
@@ -1473,8 +1580,7 @@ def complete_follow_up(opportunity_id):
         flash("Review the follow-up before marking it complete.", "warning")
         return redirect(url_for("opportunity_detail", opportunity_id=opp.id))
 
-    opp.follow_up_completed_at = datetime.utcnow()
-    opp.follow_up_date = date.today() + timedelta(days=7)
+    record_follow_up_completion(opp)
 
     db.session.commit()
 
