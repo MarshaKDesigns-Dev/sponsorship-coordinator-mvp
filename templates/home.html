@@ -1,23 +1,79 @@
-{% extends "base.html" %} {% block content %}
+﻿{% extends "base.html" %}
+
+{% block content %}
+
 <div class="hero p-5 rounded-4">
-  <div class="eyebrow">CUSTOMER ZERO</div>
 
-  <h1>Your Sponsorship Coordinator is ready to work.</h1>
+    <div class="eyebrow">
+        MARSHA AI
+    </div>
 
-  <p class="lead">
-    I already know your organization. I need four details about the current
-    initiative. Then I will build the workspace and prospect pipeline.
-  </p>
+    <h1>Sponsorship Coordinator</h1>
 
-  <div class="known-card mt-4">
-    <strong>I already know:</strong><br />
-    Ms. Full-Figured North Carolina Pageant · Durham, North Carolina<br />
-    Empower, Inspire, and Serve through confidence, leadership, community
-    service, personal growth, and sisterhood.
-  </div>
+    <p class="lead">
+        Build sponsorship partnerships, manage outreach,
+        and track every opportunity from research to commitment.
+    </p>
 
-  <a class="btn btn-gold btn-lg mt-4" href="{{ url_for('start') }}">
-    Start Current Sponsorship Initiative
-  </a>
+    {% if organization %}
+
+    <div class="known-card mt-4">
+
+        <h4 class="mb-2">
+            {{ organization.name }}
+        </h4>
+
+        {% if organization.city or organization.state %}
+        <p class="mb-2">
+            {{ organization.city }}, {{ organization.state }}
+        </p>
+        {% endif %}
+
+        {% if organization.mission %}
+        <p class="mb-0">
+            {{ organization.mission }}
+        </p>
+        {% endif %}
+
+    </div>
+
+    <div class="d-flex gap-3 mt-4">
+
+        <a class="btn btn-gold btn-lg"
+           href="{{ url_for('workspace') }}">
+            Continue Workspace
+        </a>
+
+        <a class="btn btn-outline-dark btn-lg"
+           href="{{ url_for('setup') }}">
+            Organization Settings
+        </a>
+
+    </div>
+
+    {% else %}
+
+    <div class="card p-4 mt-4">
+
+        <h3>
+            Welcome to Marsha AI
+        </h3>
+
+        <p>
+            Before your AI Sponsorship Coordinator can begin,
+            tell me about your organization and your current sponsorship
+            initiative.
+        </p>
+
+        <a class="btn btn-gold btn-lg"
+           href="{{ url_for('setup') }}">
+            Begin Organization Setup
+        </a>
+
+    </div>
+
+    {% endif %}
+
 </div>
+
 {% endblock %}

@@ -1,45 +1,62 @@
-{% extends "base.html" %} {% block content %}
+﻿{% extends "base.html" %}
 
-<div
-  class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4"
->
+{% block title %}
+{{ organization.name }} · Sponsorship Workspace
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
-    <div class="eyebrow">ACTIVE INITIATIVE</div>
-    <h1>{{ data.initiative }}</h1>
-    <p class="mb-0">
-      Target: {{ data.target }} {% if data.deadline %} by {{ data.deadline }} {%
-      endif %}
+    <div class="eyebrow">ACTIVE SPONSORSHIP INITIATIVE</div>
+
+    <h1>{{ initiative.name }}</h1>
+
+    <p class="mb-1">
+      <strong>{{ organization.name }}</strong>
     </p>
+
+    {% if organization.location %}
+    <p class="mb-0">
+      {{ organization.location }}
+    </p>
+    {% endif %}
   </div>
 
-  <a class="btn btn-outline-dark" href="{{ url_for('setup') }}">
-    Edit Organization & Initiative
-  </a>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-dark" href="{{ url_for('setup') }}">
+      Edit Setup
+    </a>
+
+    <a class="btn btn-dark" href="{{ url_for('show_pipeline') }}">
+      Open Pipeline
+    </a>
+  </div>
 </div>
 
-<div class="alert action-card">
+<div class="alert action-card mb-4">
   <strong>Next Best Action:</strong>
-  Open a sponsor category, review actual prospects, approve the strongest
-  opportunities, then work the pipeline.
+  Select a sponsor category, review the recommended prospects, research the
+  strongest contact path, and approve qualified opportunities into the pipeline.
 </div>
 
 <div class="row g-3 mb-4">
   <div class="col-md-4">
-    <div class="metric">
-      <span>Target</span>
+    <div class="metric h-100">
+      <span>Fundraising Target</span>
       <strong>{{ data.target or 'Not set' }}</strong>
     </div>
   </div>
 
   <div class="col-md-4">
-    <div class="metric">
+    <div class="metric h-100">
       <span>Deadline</span>
       <strong>{{ data.deadline or 'Not set' }}</strong>
     </div>
   </div>
 
   <div class="col-md-4">
-    <div class="metric">
+    <div class="metric h-100">
       <span>Pipeline</span>
       <strong>{{ pipeline|length }} Opportunities</strong>
     </div>
@@ -47,35 +64,42 @@
 </div>
 
 <div class="card p-4 mb-4">
-  <div class="eyebrow">COORDINATOR'S ASSESSMENT</div>
+  <div class="eyebrow">ORGANIZATION CONTEXT</div>
 
-  <h2>How I am positioning this opportunity</h2>
-
-  <p>
-    {{ org.name }} should approach sponsorship as a partnership opportunity
-    centered on its mission, audience, and current initiative. The active
-    initiative is {{ data.initiative }}.
-  </p>
+  <h2>How the Coordinator understands your organization</h2>
 
   {% if org.mission %}
   <p>
-    <strong>Organization mission:</strong>
+    <strong>Mission:</strong>
     {{ org.mission }}
   </p>
-  {% endif %} {% if data.audience %}
+  {% endif %}
+
+  {% if data.audience %}
   <p>
     <strong>Audience and community reach:</strong>
     {{ data.audience }}
   </p>
-  {% endif %} {% if data.needs %}
+  {% endif %}
+
+  {% if data.needs %}
   <p>
-    <strong>Current funding needs:</strong>
+    <strong>Sponsorship needs:</strong>
     {{ data.needs }}
   </p>
-  {% endif %} {% if data.goals %}
-  <p class="mb-0">
+  {% endif %}
+
+  {% if data.goals %}
+  <p>
     <strong>Campaign goals:</strong>
     {{ data.goals }}
+  </p>
+  {% endif %}
+
+  {% if not org.mission and not data.audience and not data.needs and not data.goals %}
+  <p class="mb-0">
+    Add more organization and initiative details in Setup to improve AI research,
+    outreach, and follow-up quality.
   </p>
   {% endif %}
 </div>
@@ -83,43 +107,48 @@
 <div class="card p-4 mb-4">
   <div class="eyebrow">PROSPECT RESEARCH QUEUE</div>
 
-  <h2>Open a category to review actual prospects</h2>
+  <h2>Choose a sponsor category</h2>
+
+  <p>
+    Each category contains prospects that can be researched, qualified, and
+    approved into the sponsorship pipeline.
+  </p>
 
   <div class="table-responsive">
-    <table class="table align-middle">
+    <table class="table align-middle mb-0">
       <thead>
         <tr>
           <th>Priority</th>
           <th>Category</th>
-          <th>Why it fits</th>
+          <th>Why It Fits</th>
           <th></th>
         </tr>
       </thead>
 
       <tbody>
-        {% for c in categories %}
-
+        {% for category in categories %}
         <tr>
           <td>
-            <span class="score">{{ c.score }}</span>
+            <span class="score">{{ category.score }}</span>
           </td>
 
           <td>
-            <strong>{{ c.category }}</strong>
+            <strong>{{ category.category }}</strong>
           </td>
 
-          <td>{{ c.fit }}</td>
-
           <td>
+            {{ category.fit }}
+          </td>
+
+          <td class="text-end">
             <a
               class="btn btn-sm btn-dark"
-              href="{{ url_for('prospects', category=c.slug) }}"
+              href="{{ url_for('prospects', category=category.slug) }}"
             >
               Review Prospects
             </a>
           </td>
         </tr>
-
         {% endfor %}
       </tbody>
     </table>
@@ -127,23 +156,30 @@
 </div>
 
 <div class="card p-4">
-  <div class="eyebrow">SELLABLE INVENTORY</div>
+  <div class="eyebrow">CURRENT SPONSORSHIP ASSETS</div>
 
-  <h2>What we can offer sponsors</h2>
+  <h2>What your organization can offer sponsors</h2>
+
+  <p>
+    These are the current default sponsorship assets. Phase 2 will make this
+    inventory specific to each organization and initiative.
+  </p>
 
   <div class="row g-3">
-    {% for a in assets %}
-
+    {% for asset in assets %}
     <div class="col-md-6">
-      <div class="asset">
-        <strong>{{ a.name }}</strong>
+      <div class="asset h-100">
+        <strong>{{ asset.name }}</strong>
 
-        <p class="mb-1">{{ a.value }}</p>
+        <p class="mb-1">
+          {{ asset.value }}
+        </p>
 
-        <small> Capacity: {{ a.capacity }} </small>
+        <small>
+          Capacity: {{ asset.capacity }}
+        </small>
       </div>
     </div>
-
     {% endfor %}
   </div>
 </div>

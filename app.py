@@ -886,7 +886,15 @@ def setup():
 
 @app.route("/")
 def home():
-    return render_template("home.html", org=get_org_profile(), count=Opportunity.query.count())
+    organization = get_active_organization()
+    initiative = get_active_initiative()
+
+    return render_template(
+        "home.html",
+        organization=organization,
+        initiative=initiative,
+        opportunity_count=Opportunity.query.count()
+    )
 
 
 @app.route("/start", methods=["GET", "POST"])
@@ -906,12 +914,24 @@ def start():
 
 @app.route("/workspace")
 def workspace():
+    organization = get_active_organization()
+    initiative = get_active_initiative()
+
+    if not organization or not initiative:
+        flash(
+            "Complete organization and sponsorship initiative setup first.",
+            "warning"
+        )
+        return redirect(url_for("setup"))
+
     data = get_initiative_profile()
     session["initiative"] = data
 
     return render_template(
         "workspace.html",
         org=get_org_profile(),
+        organization=organization,
+        initiative=initiative,
         data=data,
         categories=CATEGORIES,
         assets=ASSETS,
