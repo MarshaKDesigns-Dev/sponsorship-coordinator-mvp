@@ -139,6 +139,55 @@ class SponsorshipInitiative(db.Model):
     )
 
 
+class SponsorCategory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer,
+        db.ForeignKey("organization.id"),
+        nullable=False
+    )
+    initiative_id = db.Column(
+        db.Integer,
+        db.ForeignKey("sponsorship_initiative.id"),
+        nullable=False
+    )
+    slug = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(200), nullable=False)
+    fit = db.Column(db.Text)
+    score = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+
+class SponsorshipAsset(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer,
+        db.ForeignKey("organization.id"),
+        nullable=False
+    )
+    initiative_id = db.Column(
+        db.Integer,
+        db.ForeignKey("sponsorship_initiative.id"),
+        nullable=False
+    )
+    name = db.Column(db.String(200), nullable=False)
+    value = db.Column(db.Text)
+    capacity = db.Column(db.String(100))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+
 class ResearchRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     prospect_key = db.Column(db.String(250), unique=True, nullable=False)
@@ -349,6 +398,63 @@ def get_worker_context():
         "needs": initiative.get("needs") or "",
         "goals": initiative.get("goals") or ""
     }
+
+
+def seed_sponsorship_intelligence(organization, initiative):
+    category_count = SponsorCategory.query.filter_by(
+        organization_id=organization.id,
+        initiative_id=initiative.id
+    ).count()
+
+    if category_count == 0:
+        for category in CATEGORIES:
+            db.session.add(
+                SponsorCategory(
+                    organization_id=organization.id,
+                    initiative_id=initiative.id,
+                    slug=category["slug"],
+                    category=category["category"],
+                    fit=category["fit"],
+                    score=category["score"],
+                    is_active=True
+                )
+            )
+
+    asset_count = SponsorshipAsset.query.filter_by(
+        organization_id=organization.id,
+        initiative_id=initiative.id
+    ).count()
+
+    if asset_count == 0:
+        for asset in ASSETS:
+            db.session.add(
+                SponsorshipAsset(
+                    organization_id=organization.id,
+                    initiative_id=initiative.id,
+                    name=asset["name"],
+                    value=asset["value"],
+                    capacity=asset["capacity"],
+                    is_active=True
+                )
+            )
+
+    db.session.commit()
+
+
+def get_sponsor_categories(organization, initiative):
+    return SponsorCategory.query.filter_by(
+        organization_id=organization.id,
+        initiative_id=initiative.id,
+        is_active=True
+    ).order_by(SponsorCategory.score.desc()).all()
+
+
+def get_sponsorship_assets(organization, initiative):
+    return SponsorshipAsset.query.filter_by(
+        organization_id=organization.id,
+        initiative_id=initiative.id,
+        is_active=True
+    ).order_by(SponsorshipAsset.id.asc()).all()
 
 
 def get_prospect_key(category, index):
@@ -924,6 +1030,8 @@ def workspace():
         )
         return redirect(url_for("setup"))
 
+    seed_sponsorship_intelligence(organization, initiative)
+
     data = get_initiative_profile()
     session["initiative"] = data
 
@@ -933,8 +1041,8 @@ def workspace():
         organization=organization,
         initiative=initiative,
         data=data,
-        categories=CATEGORIES,
-        assets=ASSETS,
+        categories=get_sponsor_categories(organization, initiative),
+        assets=get_sponsorship_assets(organization, initiative),
         pipeline=Opportunity.query.all()
     )
 
