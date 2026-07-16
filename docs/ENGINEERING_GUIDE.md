@@ -1,6 +1,6 @@
-# Marsha AI Architecture
+# Marsha AI Engineering Guide
 
-# Engineering Philosophy
+## Engineering Philosophy
 
 Marsha AI is engineered around durable business workflows rather than conversational exchanges.
 
@@ -681,6 +681,37 @@ Separate repositories may become appropriate when:
 * repository size or ownership creates material friction
 
 Until then, one repository reduces operational complexity.
+
+---
+
+## Definition of Done
+
+A feature is not complete until:
+
+* the code is implemented
+* tests are written
+* the regression suite passes
+* documentation is updated
+* no TODO placeholders remain
+* the change is merged into main
+* the feature branch is deleted
+
+A feature that satisfies only some of these is in progress, not done.
+
+---
+
+## Architectural Principles
+
+When more than one reasonable implementation exists, prefer:
+
+* simple over clever
+* explicit over implicit
+* services over duplicated route logic
+* validation over assumption
+* small vertical slices over broad rewrites
+* incremental evolution over speculative architecture
+
+These are values, not loopholes. They guide the choice between defensible options; they do not override the Architectural Decision Rules below.
 
 ---
 
