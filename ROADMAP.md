@@ -40,6 +40,91 @@ Organization Setup
 
 ---
 
+## Remaining Work — Priority Order
+
+Remaining work for the Sponsorship Coordinator, in priority order. Each item is expanded in the detailed sections below.
+
+1. **Complete Workspace AI Integration**
+   * Finish the application service tests.
+   * Add the workspace generation route.
+   * Connect the route to the new service.
+   * Load persisted intelligence into the workspace.
+   * Add generate and regenerate controls.
+   * Display organization analysis, strategy, categories, assets, and research priorities.
+   * Add route and template tests.
+   * Retire the legacy static seeding behavior once the AI path is proven.
+
+2. **Add intelligence review controls**
+   * Generated, reviewed, and approved states.
+   * Generation timestamps.
+   * Controlled regeneration.
+   * Version and history behavior.
+   * Clear current-versus-prior intelligence handling.
+
+3. **Complete production readiness**
+   * PostgreSQL migration.
+   * Authentication foundation (identity and sessions). This is the single authentication effort; customer signup in item 5 extends it rather than rebuilding it.
+   * Customer and organization data isolation.
+   * Secure secrets and environment configuration.
+   * Structured logging and error monitoring.
+   * Backup and recovery procedures.
+   * Production deployment configuration.
+   * Privacy and security review.
+
+4. **Prepare the pilot**
+   * Onboard 3–5 organizations.
+   * Create a pilot onboarding process.
+   * Observe real usage.
+   * Measure generation time and output usefulness.
+   * Document confusion points and failures.
+   * Fix only launch-critical issues.
+   * Validate pricing and support needs.
+
+5. **Add customer-facing product infrastructure**
+   * Customer signup and login, extending the authentication foundation from item 3 rather than as a separate build.
+   * Account setup.
+   * Subscription or payment flow.
+   * Customer onboarding.
+   * Customer-facing help documentation.
+   * Basic support and issue-reporting process.
+
+6. **Improve background processing when justified**
+   * Move long AI jobs out of the web request.
+   * Add job status and progress tracking.
+   * Add retries for failed AI calls.
+   * Add scheduled follow-up jobs.
+   * Add notifications when work completes.
+
+7. **Improve the workspace experience**
+   * Better loading states.
+   * Partial page updates, likely with HTMX.
+   * More usable intelligence presentation.
+   * Clear next-action recommendations.
+   * Better error recovery.
+
+8. **Complete launch positioning**
+   * Final product name and messaging.
+   * Pricing.
+   * Sales page.
+   * Demo workflow.
+   * Pilot testimonials and case studies.
+   * Launch email and social content.
+
+9. **Launch Sponsorship Coordinator v1**
+   * Stable production deployment.
+   * Pilot validation complete.
+   * Payment enabled.
+   * Customer data protected.
+   * Core workflow documented.
+   * Support process ready.
+
+10. **Begin Marsha AI Employee #2**
+    * Client Intake & Delivery Coordinator.
+    * Compare both products.
+    * Extract only the platform capabilities that are genuinely reusable.
+
+---
+
 ## Completed Foundation
 
 The following work is complete and validated.
