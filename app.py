@@ -671,6 +671,40 @@ def get_sponsorship_assets(organization, initiative):
     ).order_by(SponsorshipAsset.id.asc()).all()
 
 
+def get_sponsorship_intelligence(organization, initiative):
+    return SponsorshipIntelligence.query.filter_by(
+        organization_id=organization.id,
+        initiative_id=initiative.id
+    ).first()
+
+
+def get_research_priorities(organization, initiative):
+    return ResearchPriority.query.filter_by(
+        organization_id=organization.id,
+        initiative_id=initiative.id,
+        is_active=True
+    ).order_by(ResearchPriority.priority.asc()).all()
+
+
+def run_workspace_intelligence_generation(
+    organization_id,
+    initiative_id,
+    *,
+    regenerate=False
+):
+    """Call the workspace application service without a circular import."""
+
+    from services.generate_sponsorship_intelligence import (
+        generate_workspace_intelligence,
+    )
+
+    return generate_workspace_intelligence(
+        organization_id,
+        initiative_id,
+        regenerate=regenerate,
+    )
+
+
 def get_prospect_key(category, index):
     return f"{category}:{index}"
 
@@ -1244,10 +1278,12 @@ def workspace():
         )
         return redirect(url_for("setup"))
 
-    seed_sponsorship_intelligence(organization, initiative)
-
     data = get_initiative_profile()
     session["initiative"] = data
+    intelligence = get_sponsorship_intelligence(
+        organization,
+        initiative,
+    )
 
     return render_template(
         "workspace.html",
@@ -1255,10 +1291,46 @@ def workspace():
         organization=organization,
         initiative=initiative,
         data=data,
-        categories=get_sponsor_categories(organization, initiative),
-        assets=get_sponsorship_assets(organization, initiative),
+        intelligence=intelligence,
+        categories=(
+            get_sponsor_categories(organization, initiative)
+            if intelligence
+            else []
+        ),
+        assets=(
+            get_sponsorship_assets(organization, initiative)
+            if intelligence
+            else []
+        ),
+        research_priorities=(
+            get_research_priorities(organization, initiative)
+            if intelligence
+            else []
+        ),
         pipeline=Opportunity.query.all()
     )
+
+
+@app.route("/workspace/generate-intelligence", methods=["POST"])
+def generate_workspace_sponsorship_intelligence():
+    organization = get_active_organization()
+    initiative = get_active_initiative()
+
+    if not organization or not initiative:
+        flash(
+            "Complete organization and sponsorship initiative setup first.",
+            "warning",
+        )
+        return redirect(url_for("setup"))
+
+    result = run_workspace_intelligence_generation(
+        organization.id,
+        initiative.id,
+        regenerate=request.form.get("regenerate") == "true",
+    )
+
+    flash(result.message, "success" if result.success else "warning")
+    return redirect(url_for("workspace"))
 
 
 @app.route("/prospects/<category>")

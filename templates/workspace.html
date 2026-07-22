@@ -35,9 +35,41 @@
 </div>
 
 <div class="alert action-card mb-4">
-  <strong>Next Best Action:</strong>
-  Select a sponsor category, review the recommended prospects, research the
-  strongest contact path, and approve qualified opportunities into the pipeline.
+  {% if intelligence %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <strong>Sponsorship intelligence is ready.</strong>
+      Review the recommendations below, then continue into prospect research.
+    </div>
+
+    <form
+      method="post"
+      action="{{ url_for('generate_workspace_sponsorship_intelligence') }}"
+    >
+      <input type="hidden" name="regenerate" value="true">
+      <button class="btn btn-outline-dark" type="submit">
+        Regenerate Intelligence
+      </button>
+    </form>
+  </div>
+  {% else %}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <strong>Generate organization-specific sponsorship intelligence.</strong>
+      The Coordinator will analyze this initiative and save its strategy,
+      categories, assets, and research priorities.
+    </div>
+
+    <form
+      method="post"
+      action="{{ url_for('generate_workspace_sponsorship_intelligence') }}"
+    >
+      <button class="btn btn-dark" type="submit">
+        Generate Sponsorship Intelligence
+      </button>
+    </form>
+  </div>
+  {% endif %}
 </div>
 
 <div class="row g-3 mb-4">
@@ -104,14 +136,131 @@
   {% endif %}
 </div>
 
+{% if intelligence %}
+{% set analysis = intelligence.organization_analysis %}
+{% set strategy = intelligence.sponsorship_strategy %}
+
+<div class="card p-4 mb-4">
+  <div class="eyebrow">ORGANIZATION ANALYSIS</div>
+
+  <h2>How the Coordinator evaluates this opportunity</h2>
+
+  {% if analysis.organization_summary %}
+  <p>{{ analysis.organization_summary }}</p>
+  {% endif %}
+
+  {% if analysis.initiative_summary %}
+  <p><strong>Initiative:</strong> {{ analysis.initiative_summary }}</p>
+  {% endif %}
+
+  {% if analysis.sponsor_value_proposition %}
+  <p>
+    <strong>Sponsor value proposition:</strong>
+    {{ analysis.sponsor_value_proposition }}
+  </p>
+  {% endif %}
+
+  {% if analysis.strategy_direction %}
+  <p><strong>Strategy direction:</strong> {{ analysis.strategy_direction }}</p>
+  {% endif %}
+
+  {% if analysis.mission_strengths %}
+  <h3 class="h5 mt-3">Mission strengths</h3>
+  <ul>
+    {% for item in analysis.mission_strengths %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="row g-3 mt-1">
+    {% for title, items in [
+      ('Community impact', analysis.community_impact),
+      ('Target audiences', analysis.target_audiences),
+      ('Sponsorship objectives', analysis.sponsorship_objectives),
+      ('Risks or information gaps', analysis.risks_or_gaps)
+    ] %}
+    {% if items %}
+    <div class="col-md-6">
+      <h3 class="h5">{{ title }}</h3>
+      <ul class="mb-0">
+        {% for item in items %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card p-4 mb-4">
+  <div class="eyebrow">SPONSORSHIP STRATEGY</div>
+
+  <h2>{{ strategy.strategic_theme or 'Recommended sponsorship approach' }}</h2>
+
+  {% if strategy.positioning_statement %}
+  <p>{{ strategy.positioning_statement }}</p>
+  {% endif %}
+
+  {% if strategy.recommended_approach %}
+  <p><strong>Recommended approach:</strong> {{ strategy.recommended_approach }}</p>
+  {% endif %}
+
+  {% if strategy.sponsor_benefits %}
+  <h3 class="h5 mt-3">Sponsor benefits</h3>
+  <ul>
+    {% for item in strategy.sponsor_benefits %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if strategy.objectives %}
+  <h3 class="h5 mt-3">Objectives</h3>
+  <div class="row g-3">
+    {% for objective in strategy.objectives %}
+    <div class="col-md-6">
+      <div class="asset h-100">
+        <strong>{{ objective.objective }}</strong>
+        <p class="mb-1">{{ objective.rationale }}</p>
+        <small>Success measure: {{ objective.success_measure }}</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="row g-3 mt-1">
+    {% for title, items in [
+      ('Partnership principles', strategy.partnership_principles),
+      ('Activation priorities', strategy.activation_priorities),
+      ('Measurement priorities', strategy.measurement_priorities),
+      ('Recommended next steps', strategy.recommended_next_steps),
+      ('Risks or constraints', strategy.risks_or_constraints)
+    ] %}
+    {% if items %}
+    <div class="col-md-6">
+      <h3 class="h5">{{ title }}</h3>
+      <ul class="mb-0">
+        {% for item in items %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
 <div class="card p-4 mb-4">
   <div class="eyebrow">PROSPECT RESEARCH QUEUE</div>
 
   <h2>Choose a sponsor category</h2>
 
   <p>
-    Each category contains prospects that can be researched, qualified, and
-    approved into the sponsorship pipeline.
+    These organization-specific sponsor categories were generated for this
+    initiative. Select a category to continue into prospect research.
   </p>
 
   <div class="table-responsive">
@@ -134,10 +283,21 @@
 
           <td>
             <strong>{{ category.category }}</strong>
+            {% if category.ideal_sponsor_profile %}
+            <div class="small mt-1">
+              {{ category.ideal_sponsor_profile }}
+            </div>
+            {% endif %}
           </td>
 
           <td>
             {{ category.fit }}
+            {% if category.research_direction %}
+            <div class="small mt-1">
+              <strong>Research direction:</strong>
+              {{ category.research_direction }}
+            </div>
+            {% endif %}
           </td>
 
           <td class="text-end">
@@ -161,8 +321,8 @@
   <h2>What your organization can offer sponsors</h2>
 
   <p>
-    These are the current default sponsorship assets. Phase 2 will make this
-    inventory specific to each organization and initiative.
+    These sponsorship assets were generated for this organization and
+    initiative.
   </p>
 
   <div class="row g-3">
@@ -171,17 +331,83 @@
       <div class="asset h-100">
         <strong>{{ asset.name }}</strong>
 
+        {% if asset.description %}
+        <p class="mb-1">{{ asset.description }}</p>
+        {% endif %}
+
         <p class="mb-1">
-          {{ asset.value }}
+          {{ asset.sponsor_value or asset.value }}
         </p>
 
-        <small>
-          Capacity: {{ asset.capacity }}
+        {% if asset.audience_value %}
+        <p class="small mb-1">
+          <strong>Audience value:</strong> {{ asset.audience_value }}
+        </p>
+        {% endif %}
+
+        {% if asset.delivery_method %}
+        <p class="small mb-1">
+          <strong>Delivery:</strong> {{ asset.delivery_method }}
+        </p>
+        {% endif %}
+
+        <small>Capacity: {{ asset.capacity }}</small>
+
+        {% if asset.exclusivity %}
+        <small class="d-block">Exclusivity: {{ asset.exclusivity }}</small>
+        {% endif %}
+
+        {% if asset.measurement_method %}
+        <small class="d-block">
+          Measurement: {{ asset.measurement_method }}
         </small>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
   </div>
 </div>
+
+<div class="card p-4 mt-4">
+  <div class="eyebrow">RESEARCH PRIORITIES</div>
+
+  <h2>Where sponsor research should begin</h2>
+
+  <div class="row g-3">
+    {% for priority in research_priorities %}
+    <div class="col-md-6">
+      <div class="asset h-100">
+        <strong>{{ priority.priority }}. {{ priority.category_slug }}</strong>
+
+        <p class="mb-2">{{ priority.research_direction }}</p>
+
+        <p class="mb-2">
+          <strong>Ideal sponsor:</strong>
+          {{ priority.ideal_sponsor_profile }}
+        </p>
+
+        {% if priority.qualification_signals %}
+        <p class="mb-1"><strong>Qualification signals</strong></p>
+        <ul>
+          {% for item in priority.qualification_signals %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if priority.recommended_asset_names %}
+        <p class="small mb-1">
+          <strong>Recommended assets:</strong>
+          {{ priority.recommended_asset_names|join(', ') }}
+        </p>
+        {% endif %}
+
+        <small><strong>Outreach angle:</strong> {{ priority.outreach_angle }}</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 {% endblock %}
