@@ -42,7 +42,7 @@ class FakeClient:
         return self
 
 
-def test_request_timeout_uses_45_second_ceiling():
+def test_request_timeout_uses_90_second_ceiling():
     timeout = remaining_request_timeout(
         generation_step="organization_analysis",
         organization=SimpleNamespace(id=1),
@@ -51,7 +51,7 @@ def test_request_timeout_uses_45_second_ceiling():
         clock=lambda: 20.0,
     )
 
-    assert timeout == 45.0
+    assert timeout == 90.0
 
 
 def test_request_timeout_is_capped_by_remaining_workflow_time():

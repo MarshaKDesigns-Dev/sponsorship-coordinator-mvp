@@ -10,7 +10,7 @@ from typing import Any
 from openai import APITimeoutError, OpenAI
 
 
-OPENAI_REQUEST_TIMEOUT_SECONDS = 45.0
+OPENAI_REQUEST_TIMEOUT_SECONDS = 90.0
 WORKFLOW_TIME_BUDGET_SECONDS = 100.0
 
 ClockCallable = Callable[[], float]

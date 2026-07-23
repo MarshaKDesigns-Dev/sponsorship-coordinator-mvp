@@ -271,7 +271,7 @@ def test_generate_strategy_returns_valid_model(
     assert len(result.objectives) == 1
     assert client.responses.last_kwargs["model"] == "test-model"
     assert client.responses.last_kwargs["text_format"] is SponsorshipStrategy
-    assert client.last_options == {"timeout": 45.0, "max_retries": 0}
+    assert client.last_options == {"timeout": 90.0, "max_retries": 0}
 
 
 def test_missing_structured_response_raises(

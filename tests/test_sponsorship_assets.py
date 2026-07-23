@@ -457,7 +457,7 @@ def test_generate_assets_returns_valid_model(
         client.responses.last_kwargs["text_format"]
         is SponsorshipAssetSet
     )
-    assert client.last_options == {"timeout": 45.0, "max_retries": 0}
+    assert client.last_options == {"timeout": 90.0, "max_retries": 0}
 
 
 def test_missing_structured_response_raises(

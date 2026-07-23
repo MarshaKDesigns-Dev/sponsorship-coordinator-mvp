@@ -125,7 +125,7 @@ def test_analysis_returns_valid_model(organization, initiative):
     assert isinstance(result, OrganizationAnalysis)
     assert result.organization_summary.startswith("Community")
     assert result.target_audiences == ["Families"]
-    assert client.last_options == {"timeout": 45.0, "max_retries": 0}
+    assert client.last_options == {"timeout": 90.0, "max_retries": 0}
 
 
 def test_openai_request_lifecycle_events(organization, initiative):

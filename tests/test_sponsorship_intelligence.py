@@ -247,7 +247,7 @@ def test_orchestrator_passes_dependencies_to_workers(
         initiative,
         client=client,
         model=model,
-        request_timeout=45.0,
+        request_timeout=90.0,
         workflow_started_at=100.0,
     )
 
@@ -257,7 +257,7 @@ def test_orchestrator_passes_dependencies_to_workers(
         analysis,
         client=client,
         model=model,
-        request_timeout=45.0,
+        request_timeout=90.0,
         workflow_started_at=100.0,
     )
 
@@ -268,7 +268,7 @@ def test_orchestrator_passes_dependencies_to_workers(
         strategy,
         client=client,
         model=model,
-        request_timeout=45.0,
+        request_timeout=90.0,
         workflow_started_at=100.0,
     )
 
@@ -280,7 +280,7 @@ def test_orchestrator_passes_dependencies_to_workers(
         categories,
         client=client,
         model=model,
-        request_timeout=45.0,
+        request_timeout=90.0,
         workflow_started_at=100.0,
     )
 
@@ -293,7 +293,7 @@ def test_orchestrator_passes_dependencies_to_workers(
         assets,
         client=client,
         model=model,
-        request_timeout=45.0,
+        request_timeout=90.0,
         workflow_started_at=100.0,
     )
 

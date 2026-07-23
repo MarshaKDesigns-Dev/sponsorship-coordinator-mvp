@@ -212,7 +212,7 @@ def test_generate_categories_returns_valid_model(
     assert len(result.categories) == 3
     assert result.categories[0].priority == 1
     assert client.responses.last_kwargs["model"] == "test-model"
-    assert client.last_options == {"timeout": 45.0, "max_retries": 0}
+    assert client.last_options == {"timeout": 90.0, "max_retries": 0}
 
 
 def test_missing_response_raises(

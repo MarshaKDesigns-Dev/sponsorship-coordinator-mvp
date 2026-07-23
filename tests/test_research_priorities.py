@@ -495,7 +495,7 @@ def test_generate_returns_model(
         is ResearchPrioritySet
     )
     assert client.last_options == {
-        "timeout": 45.0,
+        "timeout": 90.0,
         "max_retries": 0,
     }
 
@@ -585,7 +585,7 @@ def test_api_timeout_raises_distinct_error_and_logs_context(
             )
 
     assert client.last_options == {
-        "timeout": 45.0,
+        "timeout": 90.0,
         "max_retries": 0,
     }
     record = next(
