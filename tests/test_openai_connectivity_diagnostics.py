@@ -1,7 +1,11 @@
 import time
 
 import httpx
-from openai import APITimeoutError, AuthenticationError
+from openai import (
+    APITimeoutError,
+    AuthenticationError,
+    RateLimitError,
+)
 
 import diagnose_openai_connectivity as diagnostics
 
@@ -32,6 +36,16 @@ def _production_success(
                 "configured_http_timeout_seconds": 45.0,
                 "stage_wall_clock_limit_seconds": wall_clock_limit_seconds,
                 "database_record_loaded": True,
+                "exception_metadata": {
+                    "exception_class_name": "none",
+                    "http_status_code": "none",
+                    "openai_error_code": "none",
+                    "is_api_timeout_error": False,
+                    "is_api_connection_error": False,
+                    "is_rate_limit_error": False,
+                    "is_api_status_error": False,
+                    "request_id": "none",
+                },
             },
         )
     )
@@ -56,6 +70,16 @@ def _production_hangs(
                 "configured_http_timeout_seconds": 45.0,
                 "stage_wall_clock_limit_seconds": wall_clock_limit_seconds,
                 "database_record_loaded": True,
+                "exception_metadata": {
+                    "exception_class_name": "none",
+                    "http_status_code": "none",
+                    "openai_error_code": "none",
+                    "is_api_timeout_error": False,
+                    "is_api_connection_error": False,
+                    "is_rate_limit_error": False,
+                    "is_api_status_error": False,
+                    "request_id": "none",
+                },
             },
         )
     )
@@ -198,6 +222,16 @@ def test_production_analysis_output_contains_no_sensitive_fields():
             "configured_http_timeout_seconds": 45.0,
             "stage_wall_clock_limit_seconds": 60.0,
             "database_record_loaded": False,
+            "exception_metadata": {
+                "exception_class_name": "APIConnectionError",
+                "http_status_code": "none",
+                "openai_error_code": "none",
+                "is_api_timeout_error": False,
+                "is_api_connection_error": True,
+                "is_rate_limit_error": False,
+                "is_api_status_error": False,
+                "request_id": "none",
+            },
         },
     )
 
@@ -208,7 +242,72 @@ def test_production_analysis_output_contains_no_sensitive_fields():
         "prompt=",
         "response",
         "schema=",
-        "exception",
+        "exception_message",
+        "exception_text",
         "traceback",
     ):
         assert forbidden not in output
+
+
+def test_sanitized_timeout_exception_metadata():
+    error = APITimeoutError(
+        request=httpx.Request("POST", "https://api.openai.com")
+    )
+
+    metadata = diagnostics._sanitized_exception_metadata(error)
+
+    assert metadata == {
+        "exception_class_name": "APITimeoutError",
+        "http_status_code": "none",
+        "openai_error_code": "none",
+        "is_api_timeout_error": True,
+        "is_api_connection_error": True,
+        "is_rate_limit_error": False,
+        "is_api_status_error": False,
+        "request_id": "none",
+    }
+
+
+def test_sanitized_status_exception_metadata():
+    response = httpx.Response(
+        429,
+        request=httpx.Request("POST", "https://api.openai.com"),
+        headers={"x-request-id": "req_safe123"},
+        json={"error": {"code": "rate_limit_exceeded"}},
+    )
+    error = RateLimitError(
+        "secret provider message",
+        response=response,
+        body={"error": {"code": "rate_limit_exceeded"}},
+    )
+
+    metadata = diagnostics._sanitized_exception_metadata(error)
+
+    assert metadata == {
+        "exception_class_name": "RateLimitError",
+        "http_status_code": 429,
+        "openai_error_code": "rate_limit_exceeded",
+        "is_api_timeout_error": False,
+        "is_api_connection_error": False,
+        "is_rate_limit_error": True,
+        "is_api_status_error": True,
+        "request_id": "req_safe123",
+    }
+
+
+def test_sanitized_exception_metadata_rejects_unsafe_identifiers():
+    response = httpx.Response(
+        400,
+        request=httpx.Request("POST", "https://api.openai.com"),
+        headers={"x-request-id": "unsafe request id\nsecret"},
+    )
+    error = AuthenticationError(
+        "secret provider message",
+        response=response,
+        body={"error": {"code": "unsafe code with spaces"}},
+    )
+
+    metadata = diagnostics._sanitized_exception_metadata(error)
+
+    assert metadata["openai_error_code"] == "unavailable"
+    assert metadata["request_id"] == "unavailable"

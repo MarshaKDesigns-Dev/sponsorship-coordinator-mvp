@@ -236,6 +236,69 @@ def _classify_production_analysis_exception(
     return "application_error"
 
 
+def _safe_identifier(value) -> str:
+    if value is None:
+        return "none"
+    candidate = str(value)
+    if re.fullmatch(r"[A-Za-z0-9._:-]+", candidate):
+        return candidate
+    return "unavailable"
+
+
+def _sanitized_exception_metadata(error: BaseException) -> dict:
+    chain = tuple(_exception_chain(error))
+    openai_error = next(
+        (item for item in chain if isinstance(item, openai.APIError)),
+        None,
+    )
+    primary_error = openai_error or error
+    status_error = next(
+        (item for item in chain if isinstance(item, openai.APIStatusError)),
+        None,
+    )
+
+    status_code = getattr(status_error, "status_code", None)
+    if not isinstance(status_code, int):
+        status_code = "none"
+
+    error_code = getattr(status_error, "code", None)
+    body = getattr(status_error, "body", None)
+    if error_code is None and isinstance(body, dict):
+        error_data = body.get("error")
+        if isinstance(error_data, dict):
+            error_code = error_data.get("code")
+        if error_code is None:
+            error_code = body.get("code")
+
+    request_id = next(
+        (
+            getattr(item, "request_id", None)
+            for item in chain
+            if getattr(item, "request_id", None) is not None
+        ),
+        None,
+    )
+
+    return {
+        "exception_class_name": _safe_identifier(
+            type(primary_error).__name__
+        ),
+        "http_status_code": status_code,
+        "openai_error_code": _safe_identifier(error_code),
+        "is_api_timeout_error": any(
+            isinstance(item, openai.APITimeoutError) for item in chain
+        ),
+        "is_api_connection_error": any(
+            isinstance(item, openai.APIConnectionError) for item in chain
+        ),
+        "is_rate_limit_error": any(
+            isinstance(item, openai.RateLimitError) for item in chain
+        ),
+        "is_api_status_error": status_error is not None,
+        "request_id": _safe_identifier(request_id),
+    }
+
+
 def _production_analysis_child(
     organization_id: int,
     initiative_id: int,
@@ -297,6 +360,12 @@ def _production_analysis_child(
                     )
             except BaseException as error:
                 result = _classify_production_analysis_exception(error)
+                sender.send(
+                    (
+                        "exception_metadata",
+                        _sanitized_exception_metadata(error),
+                    )
+                )
             else:
                 result = "success"
 
@@ -355,6 +424,16 @@ def run_production_organization_analysis(
         "database_record_loaded": False,
     }
     result = "timeout" if timed_out else "application_error"
+    exception_metadata = {
+        "exception_class_name": "none",
+        "http_status_code": "none",
+        "openai_error_code": "none",
+        "is_api_timeout_error": False,
+        "is_api_connection_error": False,
+        "is_rate_limit_error": False,
+        "is_api_status_error": False,
+        "request_id": "none",
+    }
     while True:
         try:
             message_type, value = receiver.recv()
@@ -364,10 +443,13 @@ def run_production_organization_analysis(
             metadata = value
         elif message_type == "result" and not timed_out:
             result = value
+        elif message_type == "exception_metadata":
+            exception_metadata = value
 
     receiver.close()
     process.close()
     elapsed_seconds = max(0.0, time.monotonic() - started_at)
+    metadata["exception_metadata"] = exception_metadata
     return result, elapsed_seconds, metadata
 
 
@@ -376,6 +458,7 @@ def format_production_analysis_result(
     elapsed_seconds: float,
     metadata: dict,
 ) -> str:
+    exception_metadata = metadata["exception_metadata"]
     return (
         "diagnostic=production_organization_analysis "
         f"result={result} elapsed_seconds={elapsed_seconds:.3f} "
@@ -389,7 +472,20 @@ def format_production_analysis_result(
         "stage_wall_clock_limit_seconds="
         f"{metadata['stage_wall_clock_limit_seconds']} "
         "database_record_loaded="
-        f"{str(metadata['database_record_loaded']).lower()}"
+        f"{str(metadata['database_record_loaded']).lower()} "
+        "exception_class_name="
+        f"{exception_metadata['exception_class_name']} "
+        f"http_status_code={exception_metadata['http_status_code']} "
+        f"openai_error_code={exception_metadata['openai_error_code']} "
+        "is_api_timeout_error="
+        f"{str(exception_metadata['is_api_timeout_error']).lower()} "
+        "is_api_connection_error="
+        f"{str(exception_metadata['is_api_connection_error']).lower()} "
+        "is_rate_limit_error="
+        f"{str(exception_metadata['is_rate_limit_error']).lower()} "
+        "is_api_status_error="
+        f"{str(exception_metadata['is_api_status_error']).lower()} "
+        f"request_id={exception_metadata['request_id']}"
     )
 
 
