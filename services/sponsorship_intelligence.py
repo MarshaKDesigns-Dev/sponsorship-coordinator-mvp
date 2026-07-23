@@ -75,6 +75,7 @@ SponsorshipStrategyWorker = Callable[..., SponsorshipStrategy]
 SponsorCategoryWorker = Callable[..., SponsorCategorySet]
 SponsorshipAssetWorker = Callable[..., SponsorshipAssetSet]
 ResearchPriorityWorker = Callable[..., ResearchPrioritySet]
+LifecycleLogger = Callable[[str], None]
 
 
 def generate_sponsorship_intelligence(
@@ -100,6 +101,7 @@ def generate_sponsorship_intelligence(
     ),
     workflow_budget_seconds: float = WORKFLOW_TIME_BUDGET_SECONDS,
     clock: ClockCallable = monotonic,
+    lifecycle_logger: LifecycleLogger | None = None,
 ) -> SponsorshipIntelligenceResult:
     """Run all sponsorship intelligence workers in dependency order.
 
@@ -152,7 +154,12 @@ def generate_sponsorship_intelligence(
             clock=clock,
         )
 
+    def log_lifecycle(event: str) -> None:
+        if lifecycle_logger is not None:
+            lifecycle_logger(event)
+
     try:
+        log_lifecycle("organization_analysis_started")
         analysis = organization_analysis_worker(
             organization,
             initiative,
@@ -161,7 +168,9 @@ def generate_sponsorship_intelligence(
             request_timeout=request_timeout_for("organization_analysis"),
             workflow_started_at=workflow_started_at,
         )
+        log_lifecycle("organization_analysis_completed")
 
+        log_lifecycle("strategy_generation_started")
         strategy = sponsorship_strategy_worker(
             organization,
             initiative,
@@ -171,7 +180,9 @@ def generate_sponsorship_intelligence(
             request_timeout=request_timeout_for("sponsorship_strategy"),
             workflow_started_at=workflow_started_at,
         )
+        log_lifecycle("strategy_generation_completed")
 
+        log_lifecycle("sponsor_categories_started")
         categories = sponsor_category_worker(
             organization,
             initiative,
@@ -182,7 +193,9 @@ def generate_sponsorship_intelligence(
             request_timeout=request_timeout_for("sponsor_categories"),
             workflow_started_at=workflow_started_at,
         )
+        log_lifecycle("sponsor_categories_completed")
 
+        log_lifecycle("sponsorship_assets_started")
         assets = sponsorship_asset_worker(
             organization,
             initiative,
@@ -194,7 +207,9 @@ def generate_sponsorship_intelligence(
             request_timeout=request_timeout_for("sponsorship_assets"),
             workflow_started_at=workflow_started_at,
         )
+        log_lifecycle("sponsorship_assets_completed")
 
+        log_lifecycle("research_priorities_started")
         research_priorities = research_priority_worker(
             organization,
             initiative,
@@ -207,6 +222,7 @@ def generate_sponsorship_intelligence(
             request_timeout=request_timeout_for("research_priorities"),
             workflow_started_at=workflow_started_at,
         )
+        log_lifecycle("research_priorities_completed")
 
         return SponsorshipIntelligenceResult(
             organization_analysis=analysis,

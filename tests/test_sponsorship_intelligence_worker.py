@@ -250,6 +250,56 @@ def test_worker_passes_background_budget_and_completes_atomically(monkeypatch):
     assert "sponsorship_intelligence_job_completed" in output
 
 
+def test_worker_emits_persistence_and_completion_lifecycle_logs_in_order(
+    monkeypatch,
+):
+    stream = StringIO()
+    configure_worker_logging(stream)
+    job = _job()
+    completed = MagicMock()
+    monkeypatch.setattr(
+        "services.sponsorship_intelligence_worker.mark_completed",
+        completed,
+    )
+
+    def generate(*args, lifecycle_logger, persist, **kwargs):
+        lifecycle_logger("organization_analysis_started")
+        lifecycle_logger("organization_analysis_completed")
+        persist(MagicMock(), MagicMock(), MagicMock())
+        return SimpleNamespace(success=True)
+
+    with app.app_context():
+        process_next_job(
+            worker_id="worker",
+            workflow_budget_seconds=240.0,
+            lease_seconds=600.0,
+            max_attempts=3,
+            claim=MagicMock(return_value=job),
+            generate=generate,
+            persist=MagicMock(return_value=MagicMock()),
+        )
+
+    output = stream.getvalue()
+    expected = [
+        "organization_analysis_started",
+        "organization_analysis_completed",
+        "persist_sponsorship_intelligence_started",
+        "persist_sponsorship_intelligence_completed",
+        "mark_completed_started",
+        "mark_completed_completed",
+    ]
+    positions = [output.index(event) for event in expected]
+    assert positions == sorted(positions)
+    for event in expected:
+        line = next(
+            line for line in output.splitlines() if line.startswith(event)
+        )
+        assert "worker_id=worker" in line
+        assert f"job_id={job.id}" in line
+        assert f"organization_id={job.organization_id}" in line
+        assert f"initiative_id={job.initiative_id}" in line
+
+
 def test_worker_timeout_marks_failed_with_safe_message(monkeypatch):
     stream = StringIO()
     configure_worker_logging(stream)

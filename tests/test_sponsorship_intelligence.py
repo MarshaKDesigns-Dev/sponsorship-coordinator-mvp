@@ -141,6 +141,44 @@ def test_orchestrator_runs_workers_in_dependency_order(
 
     assert isinstance(result, SponsorshipIntelligenceResult)
     assert result.research_priorities is research_priorities
+
+
+def test_generation_lifecycle_events_are_emitted_in_order(
+    organization,
+    initiative,
+    analysis,
+    strategy,
+    categories,
+    assets,
+    research_priorities,
+):
+    events = []
+
+    generate_sponsorship_intelligence(
+        organization,
+        initiative,
+        organization_analysis_worker=Mock(return_value=analysis),
+        sponsorship_strategy_worker=Mock(return_value=strategy),
+        sponsor_category_worker=Mock(return_value=categories),
+        sponsorship_asset_worker=Mock(return_value=assets),
+        research_priority_worker=Mock(return_value=research_priorities),
+        lifecycle_logger=events.append,
+    )
+
+    assert events == [
+        "organization_analysis_started",
+        "organization_analysis_completed",
+        "strategy_generation_started",
+        "strategy_generation_completed",
+        "sponsor_categories_started",
+        "sponsor_categories_completed",
+        "sponsorship_assets_started",
+        "sponsorship_assets_completed",
+        "research_priorities_started",
+        "research_priorities_completed",
+    ]
+
+
 def test_orchestrator_returns_all_worker_results(
     organization,
     initiative,

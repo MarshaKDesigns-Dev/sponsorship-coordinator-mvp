@@ -137,14 +137,30 @@ def process_next_job(
         getattr(job, "initiative_id", None),
     )
 
+    def log_lifecycle(event: str) -> None:
+        logger.info(
+            (
+                "%s worker_id=%s job_id=%s organization_id=%s "
+                "initiative_id=%s"
+            ),
+            event,
+            worker_id,
+            getattr(job, "id", None),
+            getattr(job, "organization_id", None),
+            getattr(job, "initiative_id", None),
+        )
+
     def persist_without_commit(organization, initiative, result):
-        return persist(
+        log_lifecycle("persist_sponsorship_intelligence_started")
+        record = persist(
             organization,
             initiative,
             result,
             session=db.session,
             commit=False,
         )
+        log_lifecycle("persist_sponsorship_intelligence_completed")
+        return record
 
     try:
         result = generate(
@@ -153,14 +169,17 @@ def process_next_job(
             regenerate=job.regenerate,
             workflow_budget_seconds=workflow_budget_seconds,
             persist=persist_without_commit,
+            lifecycle_logger=log_lifecycle,
         )
 
         if result.success:
+            log_lifecycle("mark_completed_started")
             mark_completed(
                 job,
                 session=db.session,
                 commit=False,
             )
+            log_lifecycle("mark_completed_completed")
             db.session.commit()
             logger.info(
                 (

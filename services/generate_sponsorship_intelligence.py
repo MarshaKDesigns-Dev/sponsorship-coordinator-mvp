@@ -70,6 +70,7 @@ LoadOrganizationCallable = Callable[[int], Any]
 LoadInitiativeCallable = Callable[[int], Any]
 IntelligenceExistsCallable = Callable[[Any], bool]
 ClockCallable = Callable[[], datetime]
+LifecycleLogger = Callable[[str], None]
 
 
 def _default_load_organization(organization_id: int) -> Any:
@@ -117,6 +118,7 @@ def generate_workspace_intelligence(
     ),
     workflow_budget_seconds: float | None = None,
     now: ClockCallable = datetime.utcnow,
+    lifecycle_logger: LifecycleLogger | None = None,
 ) -> GenerationResult:
     """Generate and persist sponsorship intelligence for a workspace request.
 
@@ -222,6 +224,8 @@ def generate_workspace_intelligence(
             orchestrator_options["workflow_budget_seconds"] = (
                 workflow_budget_seconds
             )
+        if lifecycle_logger is not None:
+            orchestrator_options["lifecycle_logger"] = lifecycle_logger
         result = orchestrator(
             organization,
             initiative,
