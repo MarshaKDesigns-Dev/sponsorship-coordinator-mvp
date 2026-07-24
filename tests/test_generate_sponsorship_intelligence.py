@@ -229,7 +229,7 @@ def test_failed_regeneration_preserves_existing_intelligence():
         calls["orchestrator"] += 1
         raise SponsorshipIntelligenceTimeoutError(
             GenerationStepTimeoutError(
-                "research_priorities",
+                "sponsorship_assets",
                 step_elapsed_seconds=5.0,
                 workflow_elapsed_seconds=100.0,
             )

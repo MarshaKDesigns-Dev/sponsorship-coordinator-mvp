@@ -1404,11 +1404,6 @@ def workspace():
             if intelligence
             else []
         ),
-        research_priorities=(
-            get_research_priorities(organization, initiative)
-            if intelligence
-            else []
-        ),
         pipeline=Opportunity.query.all()
     )
 

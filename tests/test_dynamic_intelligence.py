@@ -18,7 +18,7 @@ def test_workspace_uses_database_backed_intelligence():
     assert "get_sponsorship_assets(organization, initiative)" in (
         workspace_source
     )
-    assert "get_research_priorities(organization, initiative)" in (
+    assert "get_research_priorities(organization, initiative)" not in (
         workspace_source
     )
 

@@ -218,9 +218,9 @@ def persist_sponsorship_intelligence(
 ) -> SponsorshipIntelligence:
     """Persist one complete sponsorship intelligence result.
 
-    Existing generated categories, assets, and research priorities for the
-    initiative are replaced. The high-level analysis and strategy record is
-    created or updated.
+    Existing generated categories and assets for the initiative are replaced.
+    The high-level analysis and strategy record is created or updated.
+    Legacy research priorities are replaced only when explicitly supplied.
 
     All changes are committed together. If any operation fails, the transaction
     is rolled back.
@@ -293,12 +293,13 @@ def persist_sponsorship_intelligence(
             result,
         )
 
-        _replace_research_priorities(
-            database_session,
-            organization,
-            initiative,
-            result,
-        )
+        if result.research_priorities is not None:
+            _replace_research_priorities(
+                database_session,
+                organization,
+                initiative,
+                result,
+            )
 
         if commit:
             database_session.commit()

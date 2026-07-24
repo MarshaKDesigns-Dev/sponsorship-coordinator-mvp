@@ -420,6 +420,37 @@ def test_persistence_saves_complete_intelligence_package(
     session.rollback.assert_not_called()
 
 
+def test_four_stage_persistence_preserves_existing_research_priorities(
+    organization,
+    initiative,
+    intelligence_result,
+):
+    session = MagicMock()
+    session.scalar.return_value = None
+    four_stage_result = intelligence_result.model_copy(
+        update={"research_priorities": None}
+    )
+
+    persist_sponsorship_intelligence(
+        organization,
+        initiative,
+        four_stage_result,
+        session=session,
+    )
+
+    added_records = [
+        item.args[0]
+        for item in session.add.call_args_list
+    ]
+    assert not any(
+        isinstance(item, ResearchPriority)
+        for item in added_records
+    )
+    assert session.execute.call_count == 2
+    session.commit.assert_called_once()
+    session.rollback.assert_not_called()
+
+
 def test_persistence_can_flush_without_committing(
     organization,
     initiative,

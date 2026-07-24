@@ -275,7 +275,6 @@ def test_workspace_renders_generation_job_status(status, message, expected):
             ),
             categories=[],
             assets=[],
-            research_priorities=[],
             pipeline=[],
         )
 
@@ -288,7 +287,6 @@ def test_workspace_loads_all_persisted_intelligence(monkeypatch):
     intelligence = SimpleNamespace(id=99)
     categories = [SimpleNamespace(slug="community")]
     assets = [SimpleNamespace(name="Community Partnership")]
-    priorities = [SimpleNamespace(priority=1)]
     rendered = {}
 
     monkeypatch.setattr(
@@ -337,7 +335,9 @@ def test_workspace_loads_all_persisted_intelligence(monkeypatch):
     monkeypatch.setattr(
         app_module,
         "get_research_priorities",
-        lambda org, init: priorities,
+        lambda org, init: (_ for _ in ()).throw(
+            AssertionError("workspace must not load research priorities")
+        ),
     )
     monkeypatch.setattr(
         app_module,
@@ -360,7 +360,7 @@ def test_workspace_loads_all_persisted_intelligence(monkeypatch):
     assert rendered["intelligence"] is intelligence
     assert rendered["categories"] is categories
     assert rendered["assets"] is assets
-    assert rendered["research_priorities"] is priorities
+    assert "research_priorities" not in rendered
     assert rendered["generation_job"].status == "processing"
     assert rendered["intelligence"] is intelligence
 
@@ -375,8 +375,11 @@ def test_workspace_template_exposes_generated_intelligence():
     assert "Regenerate Intelligence" in template
     assert "ORGANIZATION ANALYSIS" in template
     assert "SPONSORSHIP STRATEGY" in template
-    assert "PROSPECT RESEARCH QUEUE" in template
+    assert "RECOMMENDED SPONSOR CATEGORIES" in template
     assert "CURRENT SPONSORSHIP ASSETS" in template
-    assert "RESEARCH PRIORITIES" in template
+    assert "Where would you like to begin?" in template
+    assert "Research This Category" in template
+    assert "category=category.slug" in template
+    assert "RESEARCH PRIORITIES" not in template
     assert "Sponsorship intelligence generation is queued." in template
     assert "Sponsorship intelligence is being generated." in template

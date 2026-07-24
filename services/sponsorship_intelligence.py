@@ -26,10 +26,7 @@ from services.openai_generation_timeout import (
     WORKFLOW_TIME_BUDGET_SECONDS,
     remaining_request_timeout,
 )
-from services.research_priorities import (
-    ResearchPrioritySet,
-    generate_research_priorities,
-)
+from services.research_priorities import ResearchPrioritySet
 from services.sponsor_categories import (
     SponsorCategorySet,
     generate_sponsor_categories,
@@ -67,14 +64,13 @@ class SponsorshipIntelligenceResult(BaseModel):
     sponsorship_strategy: SponsorshipStrategy
     sponsor_categories: SponsorCategorySet
     sponsorship_assets: SponsorshipAssetSet
-    research_priorities: ResearchPrioritySet
+    research_priorities: ResearchPrioritySet | None = None
 
 
 OrganizationAnalysisWorker = Callable[..., OrganizationAnalysis]
 SponsorshipStrategyWorker = Callable[..., SponsorshipStrategy]
 SponsorCategoryWorker = Callable[..., SponsorCategorySet]
 SponsorshipAssetWorker = Callable[..., SponsorshipAssetSet]
-ResearchPriorityWorker = Callable[..., ResearchPrioritySet]
 LifecycleLogger = Callable[[str], None]
 
 
@@ -95,9 +91,6 @@ def generate_sponsorship_intelligence(
     ),
     sponsorship_asset_worker: SponsorshipAssetWorker = (
         generate_sponsorship_assets
-    ),
-    research_priority_worker: ResearchPriorityWorker = (
-        generate_research_priorities
     ),
     workflow_budget_seconds: float = WORKFLOW_TIME_BUDGET_SECONDS,
     clock: ClockCallable = monotonic,
@@ -130,12 +123,9 @@ def generate_sponsorship_intelligence(
         sponsorship_asset_worker:
             Injectable Sponsorship Asset worker.
 
-        research_priority_worker:
-            Injectable Research Priority worker.
-
     Returns:
         A validated SponsorshipIntelligenceResult containing the output from
-        all five workers.
+        all four initial-workflow workers.
 
     Raises:
         SponsorshipIntelligenceError:
@@ -214,27 +204,11 @@ def generate_sponsorship_intelligence(
         )
         log_lifecycle("sponsorship_assets_completed")
 
-        log_lifecycle("research_priorities_started")
-        research_priorities = research_priority_worker(
-            organization,
-            initiative,
-            analysis,
-            strategy,
-            categories,
-            assets,
-            client=client,
-            model=model,
-            request_timeout=request_timeout_for("research_priorities"),
-            workflow_started_at=workflow_started_at,
-        )
-        log_lifecycle("research_priorities_completed")
-
         return SponsorshipIntelligenceResult(
             organization_analysis=analysis,
             sponsorship_strategy=strategy,
             sponsor_categories=categories,
             sponsorship_assets=assets,
-            research_priorities=research_priorities,
         )
 
     except GenerationStepTimeoutError as exc:

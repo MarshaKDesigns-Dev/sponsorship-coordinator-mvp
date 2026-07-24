@@ -53,7 +53,8 @@
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
     <div>
       <strong>Sponsorship intelligence is ready.</strong>
-      Review the recommendations below, then continue into prospect research.
+      Review the recommendations below, then choose where you would like
+      to begin.
     </div>
 
     <form
@@ -71,7 +72,7 @@
     <div>
       <strong>Generate organization-specific sponsorship intelligence.</strong>
       The Coordinator will analyze this initiative and save its strategy,
-      categories, assets, and research priorities.
+      recommended sponsor categories, and sponsorship assets.
     </div>
 
     <form
@@ -268,13 +269,14 @@
 </div>
 
 <div class="card p-4 mb-4">
-  <div class="eyebrow">PROSPECT RESEARCH QUEUE</div>
+  <div class="eyebrow">RECOMMENDED SPONSOR CATEGORIES</div>
 
-  <h2>Choose a sponsor category</h2>
+  <h2>Where would you like to begin?</h2>
 
   <p>
     These organization-specific sponsor categories were generated for this
-    initiative. Select a category to continue into prospect research.
+    initiative. Select a category as the starting point for focused sponsor
+    research.
   </p>
 
   <div class="table-responsive">
@@ -319,7 +321,7 @@
               class="btn btn-sm btn-dark"
               href="{{ url_for('prospects', category=category.slug) }}"
             >
-              Review Prospects
+              Research This Category
             </a>
           </td>
         </tr>
@@ -382,46 +384,6 @@
   </div>
 </div>
 
-<div class="card p-4 mt-4">
-  <div class="eyebrow">RESEARCH PRIORITIES</div>
-
-  <h2>Where sponsor research should begin</h2>
-
-  <div class="row g-3">
-    {% for priority in research_priorities %}
-    <div class="col-md-6">
-      <div class="asset h-100">
-        <strong>{{ priority.priority }}. {{ priority.category_slug }}</strong>
-
-        <p class="mb-2">{{ priority.research_direction }}</p>
-
-        <p class="mb-2">
-          <strong>Ideal sponsor:</strong>
-          {{ priority.ideal_sponsor_profile }}
-        </p>
-
-        {% if priority.qualification_signals %}
-        <p class="mb-1"><strong>Qualification signals</strong></p>
-        <ul>
-          {% for item in priority.qualification_signals %}
-          <li>{{ item }}</li>
-          {% endfor %}
-        </ul>
-        {% endif %}
-
-        {% if priority.recommended_asset_names %}
-        <p class="small mb-1">
-          <strong>Recommended assets:</strong>
-          {{ priority.recommended_asset_names|join(', ') }}
-        </p>
-        {% endif %}
-
-        <small><strong>Outreach angle:</strong> {{ priority.outreach_angle }}</small>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
 {% endif %}
 
 {% endblock %}
